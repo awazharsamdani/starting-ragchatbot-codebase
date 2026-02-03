@@ -12,13 +12,13 @@ class RAGSystem:
     
     def __init__(self, config):
         self.config = config
-        
+
         # Initialize core components
         self.document_processor = DocumentProcessor(config.CHUNK_SIZE, config.CHUNK_OVERLAP)
-        self.vector_store = VectorStore(config.CHROMA_PATH, config.EMBEDDING_MODEL, config.MAX_RESULTS)
-        self.ai_generator = AIGenerator(config.ANTHROPIC_API_KEY, config.ANTHROPIC_MODEL)
+        self.vector_store = VectorStore(config.CHROMA_PATH, config.OPENAI_API_KEY, config.OPENAI_EMBEDDING_MODEL, config.MAX_RESULTS)
+        self.ai_generator = AIGenerator(config.OPENAI_API_KEY, config.OPENAI_MODEL)
         self.session_manager = SessionManager(config.MAX_HISTORY)
-        
+
         # Initialize search tools
         self.tool_manager = ToolManager()
         self.search_tool = CourseSearchTool(self.vector_store)

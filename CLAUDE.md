@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-This is a Retrieval-Augmented Generation (RAG) system for querying course materials. The system uses ChromaDB for vector storage, Anthropic's Claude API with tool-calling for AI responses, and sentence transformers for embeddings. The frontend is vanilla HTML/CSS/JS served by FastAPI.
+This is a Retrieval-Augmented Generation (RAG) system for querying course materials. The system uses ChromaDB for vector storage, OpenAI's GPT-4o-mini API with tool-calling for AI responses, and OpenAI's text-embedding-3-small for embeddings. The frontend is vanilla HTML/CSS/JS served by FastAPI.
 
 ## Development Commands
 
@@ -15,7 +15,7 @@ uv sync
 
 # Set up environment variables (required)
 # Create .env file with:
-ANTHROPIC_API_KEY=your_key_here
+OPENAI_API_KEY=your_key_here
 ```
 
 ### Running the Application
@@ -48,12 +48,12 @@ uv run python -m module_name
 
 2. **Query Processing Uses Tool-Calling Pattern**:
    - User queries go to `RAGSystem.query()` → `AIGenerator.generate_response()`
-   - Claude is provided with `search_course_content` tool via `ToolManager`
-   - Claude decides when to search and extracts search parameters (query, course_name, lesson_number)
+   - GPT-4o-mini is provided with `search_course_content` tool via `ToolManager`
+   - GPT-4o-mini decides when to search and extracts search parameters (query, course_name, lesson_number)
    - `CourseSearchTool` executes searches against `VectorStore` which handles:
      - Fuzzy course name matching via semantic search on course_catalog
      - Content search with optional course/lesson filtering
-   - Results are formatted with metadata and returned to Claude for final response synthesis
+   - Results are formatted with metadata and returned to GPT-4o-mini for final response synthesis
 
 ### Key Component Responsibilities
 
@@ -61,7 +61,7 @@ uv run python -m module_name
 
 **VectorStore (vector_store.py)**: Manages ChromaDB with dual collections. The `search()` method is the unified interface that handles course name resolution, filter building, and content search. Uses `SearchResults` dataclass for consistent result handling.
 
-**AIGenerator (ai_generator.py)**: Wraps Anthropic API with tool-calling support. The `_handle_tool_execution()` method manages the multi-turn conversation pattern required for tool use (initial request → tool execution → final response). System prompt instructs Claude to use tools only for course-specific questions.
+**AIGenerator (ai_generator.py)**: Wraps OpenAI API with tool-calling support. The `_handle_tool_execution()` method manages the multi-turn conversation pattern required for tool use (initial request → tool execution → final response). System prompt instructs GPT-4o-mini to use tools only for course-specific questions.
 
 **DocumentProcessor (document_processor.py)**: Parses course files expecting format:
 ```
@@ -77,7 +77,7 @@ Chunks are sentence-based with configurable overlap. First chunk of each lesson 
 
 **ToolManager & CourseSearchTool (search_tools.py)**: Implements tool pattern with `Tool` abstract base class. `CourseSearchTool.execute()` calls `VectorStore.search()` and formats results with course/lesson context headers. Tracks last_sources for UI display.
 
-**SessionManager (session_manager.py)**: Maintains conversation history per session. History is formatted as text and passed to Claude's system prompt for context (limited to `MAX_HISTORY` exchanges).
+**SessionManager (session_manager.py)**: Maintains conversation history per session. History is formatted as text and passed to GPT-4o-mini's system prompt for context (limited to `MAX_HISTORY` exchanges).
 
 ### Configuration (config.py)
 
@@ -86,8 +86,8 @@ Key settings:
 - `CHUNK_OVERLAP`: 100 chars (maintains continuity across chunks)
 - `MAX_RESULTS`: 5 results per search
 - `MAX_HISTORY`: 2 conversation exchanges retained
-- `ANTHROPIC_MODEL`: "claude-sonnet-4-20250514"
-- `EMBEDDING_MODEL`: "all-MiniLM-L6-v2" (sentence transformers)
+- `OPENAI_MODEL`: "gpt-4o-mini"
+- `OPENAI_EMBEDDING_MODEL`: "text-embedding-3-small"
 
 ### Document Structure Expectations
 
@@ -108,6 +108,7 @@ The frontend (`frontend/`) is served as static files via FastAPI's `StaticFiles`
 
 - ChromaDB persists data in `backend/chroma_db/` directory
 - The system avoids re-processing courses by checking existing titles before ingestion
-- Tool-calling enables Claude to determine when semantic search is needed vs. answering from general knowledge
+- Tool-calling enables GPT-4o-mini to determine when semantic search is needed vs. answering from general knowledge
 - The `SearchResults` dataclass provides consistent error handling across the vector store
 - Course name matching uses semantic search for fuzzy matching ("MCP" can match "Introduction to MCP")
+- OpenAI embeddings (text-embedding-3-small) provide 1536 dimensions and improved quality over local models

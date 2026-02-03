@@ -3,7 +3,26 @@ from chromadb.config import Settings
 from typing import List, Dict, Any, Optional
 from dataclasses import dataclass
 from models import Course, CourseChunk
-from sentence_transformers import SentenceTransformer
+import openai
+
+class OpenAIEmbeddingFunction:
+    """Custom embedding function that uses OpenAI API"""
+
+    def __init__(self, api_key: str, model_name: str = "text-embedding-3-small"):
+        self.client = openai.OpenAI(api_key=api_key)
+        self.model_name = model_name
+
+    def __call__(self, input: List[str]) -> List[List[float]]:
+        """Generate embeddings for a list of texts"""
+        # Replace newlines which can negatively affect performance
+        input = [text.replace("\n", " ") for text in input]
+
+        response = self.client.embeddings.create(
+            model=self.model_name,
+            input=input
+        )
+
+        return [item.embedding for item in response.data]
 
 @dataclass
 class SearchResults:
@@ -12,7 +31,7 @@ class SearchResults:
     metadata: List[Dict[str, Any]]
     distances: List[float]
     error: Optional[str] = None
-    
+
     @classmethod
     def from_chroma(cls, chroma_results: Dict) -> 'SearchResults':
         """Create SearchResults from ChromaDB query results"""
@@ -21,32 +40,33 @@ class SearchResults:
             metadata=chroma_results['metadatas'][0] if chroma_results['metadatas'] else [],
             distances=chroma_results['distances'][0] if chroma_results['distances'] else []
         )
-    
+
     @classmethod
     def empty(cls, error_msg: str) -> 'SearchResults':
         """Create empty results with error message"""
         return cls(documents=[], metadata=[], distances=[], error=error_msg)
-    
+
     def is_empty(self) -> bool:
         """Check if results are empty"""
         return len(self.documents) == 0
 
 class VectorStore:
     """Vector storage using ChromaDB for course content and metadata"""
-    
-    def __init__(self, chroma_path: str, embedding_model: str, max_results: int = 5):
+
+    def __init__(self, chroma_path: str, openai_api_key: str, embedding_model: str, max_results: int = 5):
         self.max_results = max_results
         # Initialize ChromaDB client
         self.client = chromadb.PersistentClient(
             path=chroma_path,
             settings=Settings(anonymized_telemetry=False)
         )
-        
-        # Set up sentence transformer embedding function
-        self.embedding_function = chromadb.utils.embedding_functions.SentenceTransformerEmbeddingFunction(
+
+        # Set up OpenAI embedding function
+        self.embedding_function = OpenAIEmbeddingFunction(
+            api_key=openai_api_key,
             model_name=embedding_model
         )
-        
+
         # Create collections for different types of data
         self.course_catalog = self._create_collection("course_catalog")  # Course titles/instructors
         self.course_content = self._create_collection("course_content")  # Actual course material
