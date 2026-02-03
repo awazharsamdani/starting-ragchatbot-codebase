@@ -24,6 +24,10 @@ class OpenAIEmbeddingFunction:
 
         return [item.embedding for item in response.data]
 
+    def name(self) -> str:
+        """Return the name of the embedding function for ChromaDB"""
+        return f"openai_{self.model_name}"
+
 @dataclass
 class SearchResults:
     """Container for search results with metadata"""

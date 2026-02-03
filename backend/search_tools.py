@@ -125,7 +125,11 @@ class ToolManager:
     def register_tool(self, tool: Tool):
         """Register any tool that implements the Tool interface"""
         tool_def = tool.get_tool_definition()
-        tool_name = tool_def.get("name")
+        # Handle OpenAI format where name is nested under "function"
+        if "function" in tool_def:
+            tool_name = tool_def["function"].get("name")
+        else:
+            tool_name = tool_def.get("name")
         if not tool_name:
             raise ValueError("Tool must have a 'name' in its definition")
         self.tools[tool_name] = tool
