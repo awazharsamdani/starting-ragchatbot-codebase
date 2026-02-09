@@ -9,8 +9,9 @@ from pydantic import BaseModel
 from typing import List, Optional
 import os
 
-from config import config
-from rag_system import RAGSystem
+import config
+import rag_system
+import session_manager
 
 # Initialize FastAPI app
 app = FastAPI(title="Course Materials RAG System", root_path="")
@@ -32,7 +33,7 @@ app.add_middleware(
 )
 
 # Initialize RAG system
-rag_system = RAGSystem(config)
+rag_system.initialize_rag_system(config)
 
 # Pydantic models for request/response
 class QueryRequest(BaseModel):
@@ -60,11 +61,11 @@ async def query_documents(request: QueryRequest):
         # Create session if not provided
         session_id = request.session_id
         if not session_id:
-            session_id = rag_system.session_manager.create_session()
-        
+            session_id = session_manager.create_session()
+
         # Process query using RAG system
         answer, sources = rag_system.query(request.query, session_id)
-        
+
         return QueryResponse(
             answer=answer,
             sources=sources,
@@ -92,7 +93,12 @@ async def startup_event():
     if os.path.exists(docs_path):
         print("Loading initial documents...")
         try:
-            courses, chunks = rag_system.add_course_folder(docs_path, clear_existing=False)
+            courses, chunks = rag_system.add_course_folder(
+                docs_path,
+                config.CHUNK_SIZE,
+                config.CHUNK_OVERLAP,
+                clear_existing=False
+            )
             print(f"Loaded {courses} courses with {chunks} chunks")
         except Exception as e:
             print(f"Error loading documents: {e}")
@@ -113,7 +119,7 @@ class DevStaticFiles(StaticFiles):
             response.headers["Pragma"] = "no-cache"
             response.headers["Expires"] = "0"
         return response
-    
-    
+
+
 # Serve static files for the frontend
 app.mount("/", StaticFiles(directory="../frontend", html=True), name="static")
