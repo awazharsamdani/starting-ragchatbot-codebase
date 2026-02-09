@@ -241,8 +241,61 @@ header h1 {
 }
 
 .sources-content {
-    padding: 0 0.5rem 0.25rem 1.5rem;
+    padding: 0 0.5rem 0.5rem 1.5rem;
     color: var(--text-secondary);
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+/* Source pill container */
+.source-pill {
+    display: inline-block;
+    background: rgba(37, 99, 235, 0.1);
+    border: 1px solid rgba(37, 99, 235, 0.2);
+    border-radius: 20px;
+    padding: 0.5rem 1rem;
+    font-size: 0.8rem;
+    transition: all 0.2s ease;
+    width: fit-content;
+}
+
+.source-pill:hover {
+    background: rgba(37, 99, 235, 0.15);
+    border-color: rgba(37, 99, 235, 0.3);
+    transform: translateX(4px);
+}
+
+/* Source link styling */
+.sources-content a.source-link {
+    color: var(--primary-color);
+    text-decoration: none;
+    border-bottom: 1px solid transparent;
+    transition: all 0.2s ease;
+    font-weight: 500;
+}
+
+.sources-content a.source-link:hover {
+    color: var(--primary-hover);
+    border-bottom-color: var(--primary-hover);
+}
+
+.sources-content a.source-link:visited {
+    color: #6366f1;
+}
+
+.sources-content a.source-link:focus {
+    outline: 2px solid var(--primary-color);
+    outline-offset: 2px;
+    border-radius: 2px;
+}
+
+/* External link icon */
+.sources-content a.source-link::after {
+    content: ' ↗';
+    font-size: 0.75em;
+    opacity: 0.6;
+    margin-left: 2px;
 }
 
 /* Markdown formatting styles */

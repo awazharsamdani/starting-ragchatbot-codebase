@@ -41,10 +41,18 @@ class QueryRequest(BaseModel):
     query: str
     session_id: Optional[str] = None
 
+class SourceReference(BaseModel):
+    """Model for source references with links"""
+    course_title: str
+    course_link: Optional[str]
+    lesson_number: Optional[int]
+    lesson_link: Optional[str]
+    display_text: str
+
 class QueryResponse(BaseModel):
     """Response model for course queries"""
     answer: str
-    sources: List[str]
+    sources: List[SourceReference]
     session_id: str
 
 class CourseStats(BaseModel):
@@ -122,4 +130,4 @@ class DevStaticFiles(StaticFiles):
 
 
 # Serve static files for the frontend
-app.mount("/", StaticFiles(directory="../frontend", html=True), name="static")
+app.mount("/", DevStaticFiles(directory="../frontend", html=True), name="static")

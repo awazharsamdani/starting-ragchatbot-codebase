@@ -90,11 +90,26 @@ def _format_results(results: dict) -> str:
             header += f" - Lesson {lesson_num}"
         header += "]"
 
-        # Track source for the UI
-        source = course_title
+        # Build display text for source
+        display_text = course_title
         if lesson_num is not None:
-            source += f" - Lesson {lesson_num}"
-        sources.append(source)
+            display_text += f" - Lesson {lesson_num}"
+
+        # Fetch links for this source
+        course_link = vector_store.get_course_link(course_title)
+        lesson_link = None
+        if lesson_num is not None:
+            lesson_link = vector_store.get_lesson_link(course_title, lesson_num)
+
+        # Create structured source object
+        source_obj = {
+            "course_title": course_title,
+            "course_link": course_link,
+            "lesson_number": lesson_num,
+            "lesson_link": lesson_link,
+            "display_text": display_text
+        }
+        sources.append(source_obj)
 
         formatted.append(f"{header}\n{doc}")
 

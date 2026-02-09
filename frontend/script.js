@@ -122,10 +122,37 @@ function addMessage(content, type, sources = null, isWelcome = false) {
     let html = `<div class="message-content">${displayContent}</div>`;
     
     if (sources && sources.length > 0) {
+        // Generate HTML for sources with clickable links in pill style
+        const sourcesHtml = sources.map(source => {
+            // Handle backward compatibility with string format
+            if (typeof source === 'string') {
+                return `<div class="source-pill">${source}</div>`;
+            }
+
+            // New object format with links
+            const courseLink = source.course_link;
+            const lessonLink = source.lesson_link;
+            const lessonNum = source.lesson_number;
+
+            let linkContent;
+            // If lesson link exists, show separate links for course and lesson
+            if (lessonLink && lessonNum !== null) {
+                linkContent = `<a href="${courseLink}" target="_blank" rel="noopener noreferrer" class="source-link">${source.course_title}</a> - <a href="${lessonLink}" target="_blank" rel="noopener noreferrer" class="source-link">Lesson ${lessonNum}</a>`;
+            } else if (courseLink) {
+                // If only course link, make the full display text clickable
+                linkContent = `<a href="${courseLink}" target="_blank" rel="noopener noreferrer" class="source-link">${source.display_text}</a>`;
+            } else {
+                // Fallback to plain text if no link available
+                linkContent = source.display_text;
+            }
+
+            return `<div class="source-pill">${linkContent}</div>`;
+        }).join('');
+
         html += `
             <details class="sources-collapsible">
                 <summary class="sources-header">Sources</summary>
-                <div class="sources-content">${sources.join(', ')}</div>
+                <div class="sources-content">${sourcesHtml}</div>
             </details>
         `;
     }
