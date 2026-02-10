@@ -38,32 +38,43 @@ uv run python -m module_name
 
 ## Architecture
 
+**Programming Paradigm**: The backend uses **procedural programming** with module-level state and functions rather than OOP classes. Each module maintains its own state and exposes functions for initialization and operations.
+
 ### Core Data Flow
 
 1. **Document Processing** → **Vector Storage** → **AI Query with Tools** → **Response**
-   - Course documents (txt/pdf/docx) are processed into structured `Course` objects with `Lesson` metadata
-   - Content is chunked and stored as `CourseChunk` objects in ChromaDB with two collections:
+   - Course documents (txt/pdf/docx) are processed into structured course dictionaries with lesson metadata
+   - Content is chunked and stored in ChromaDB with two collections:
      - `course_catalog`: Course metadata (title, instructor, lessons) for semantic course name matching
      - `course_content`: Actual course content chunks with course_title and lesson_number filters
 
 2. **Query Processing Uses Tool-Calling Pattern**:
-   - User queries go to `RAGSystem.query()` → `AIGenerator.generate_response()`
-   - GPT-4o-mini is provided with `search_course_content` tool via `ToolManager`
+   - User queries go to `rag_system.query()` → `ai_generator.generate_response()`
+   - GPT-4o-mini is provided with `search_course_content` tool definition
    - GPT-4o-mini decides when to search and extracts search parameters (query, course_name, lesson_number)
-   - `CourseSearchTool` executes searches against `VectorStore` which handles:
+   - `search_tools.execute_course_search()` calls `vector_store.search()` which handles:
      - Fuzzy course name matching via semantic search on course_catalog
      - Content search with optional course/lesson filtering
    - Results are formatted with metadata and returned to GPT-4o-mini for final response synthesis
 
 ### Key Component Responsibilities
 
-**RAGSystem (rag_system.py)**: Main orchestrator that coordinates all components. Handles document ingestion via `add_course_folder()` and query processing via `query()` method using tool-based architecture.
+**rag_system.py**: Main orchestrator module that coordinates all components. Uses module-level initialization flag to ensure single setup. Key functions:
+- `initialize_rag_system()`: Sets up all components (vector store, AI generator, session manager, search tools)
+- `add_course_folder()`: Ingests documents from a directory
+- `query()`: Processes user queries using tool-based architecture
 
-**VectorStore (vector_store.py)**: Manages ChromaDB with dual collections. The `search()` method is the unified interface that handles course name resolution, filter building, and content search. Uses `SearchResults` dataclass for consistent result handling.
+**vector_store.py**: Manages ChromaDB with dual collections using module-level state (`_client`, `_course_catalog`, `_course_content`). Key functions:
+- `initialize_vector_store()`: Sets up ChromaDB and embedding function
+- `search()`: Unified interface that handles course name resolution, filter building, and content search
+- Returns search results as dictionaries with documents, metadata, and distances
 
-**AIGenerator (ai_generator.py)**: Wraps OpenAI API with tool-calling support. The `_handle_tool_execution()` method manages the multi-turn conversation pattern required for tool use (initial request → tool execution → final response). System prompt instructs GPT-4o-mini to use tools only for course-specific questions.
+**ai_generator.py**: Wraps OpenAI API with tool-calling support using module-level state (`_client`, `_model`). Key functions:
+- `initialize_ai_generator()`: Sets up OpenAI client
+- `generate_response()`: Handles multi-turn conversation pattern for tool use (initial request → tool execution → final response)
+- System prompt instructs GPT-4o-mini to use tools only for course-specific questions
 
-**DocumentProcessor (document_processor.py)**: Parses course files expecting format:
+**document_processor.py**: Parses course files expecting format:
 ```
 Course Title: [title]
 Course Link: [url]
@@ -75,9 +86,17 @@ Lesson Link: [url]
 ```
 Chunks are sentence-based with configurable overlap. First chunk of each lesson gets "Lesson N content:" prefix.
 
-**ToolManager & CourseSearchTool (search_tools.py)**: Implements tool pattern with `Tool` abstract base class. `CourseSearchTool.execute()` calls `VectorStore.search()` and formats results with course/lesson context headers. Tracks last_sources for UI display.
+**search_tools.py**: Implements tool execution pattern using module-level state (`_tools`, `_last_sources`). Key functions:
+- `get_course_search_tool_definition()`: Returns OpenAI tool definition for course search
+- `execute_course_search()`: Calls `vector_store.search()` and formats results with course/lesson context headers
+- `get_last_sources()`: Retrieves sources from last search for UI display
+- Tracks last_sources globally for frontend integration
 
-**SessionManager (session_manager.py)**: Maintains conversation history per session. History is formatted as text and passed to GPT-4o-mini's system prompt for context (limited to `MAX_HISTORY` exchanges).
+**session_manager.py**: Maintains conversation history per session using module-level state (`_sessions` dict). Key functions:
+- `create_session()`: Generates new session ID
+- `add_message()` / `add_exchange()`: Adds messages to session history
+- `get_conversation_history()`: Returns formatted text history passed to GPT-4o-mini's system prompt
+- History limited to `MAX_HISTORY` exchanges (auto-trimmed)
 
 ### Configuration (config.py)
 
@@ -100,15 +119,24 @@ Documents are loaded on startup via `app.py` startup event. Existing courses are
 
 ### Frontend Integration
 
-The frontend (`frontend/`) is served as static files via FastAPI's `StaticFiles` with `DevStaticFiles` class adding no-cache headers for development. API endpoints:
+The frontend (`frontend/`) is served as static files via FastAPI's `StaticFiles` with `DevStaticFiles` class adding no-cache headers for development.
+
+**UI Layout:**
+- Left sidebar with '+ New Chat' button, course statistics, and suggested questions
+- Main chat area with message history and input field
+- '+ New Chat' button clears conversation and resets session for fresh start
+
+**API Endpoints:**
 - `POST /api/query`: Submit queries with optional session_id
 - `GET /api/courses`: Get course catalog statistics
 
 ## Development Notes
 
+- **Procedural architecture**: All backend modules use module-level state and functions instead of OOP classes
 - ChromaDB persists data in `backend/chroma_db/` directory
 - The system avoids re-processing courses by checking existing titles before ingestion
 - Tool-calling enables GPT-4o-mini to determine when semantic search is needed vs. answering from general knowledge
-- The `SearchResults` dataclass provides consistent error handling across the vector store
+- Search results are returned as dictionaries for consistent error handling across the vector store
 - Course name matching uses semantic search for fuzzy matching ("MCP" can match "Introduction to MCP")
 - OpenAI embeddings (text-embedding-3-small) provide 1536 dimensions and improved quality over local models
+- Frontend session management: Session IDs start as null and are created on first query; '+ New Chat' button resets to fresh session
